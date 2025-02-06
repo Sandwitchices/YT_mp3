@@ -3,12 +3,16 @@ from pytube import YouTube
 from pydub import AudioSegment
 import os
 import uuid
+import logging
 
 app = Flask(__name__)
 
 # Ensure the downloads folder exists
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 @app.route('/')
 def home():
@@ -20,11 +24,17 @@ def convert():
     url = data.get('url')
     
     if not url:
+        app.logger.error("No URL provided")
         return jsonify({"error": "No URL provided"}), 400
     
     try:
+        app.logger.info(f"Processing URL: {url}")
         yt = YouTube(url)
         stream = yt.streams.filter(only_audio=True).first()
+        
+        if not stream:
+            app.logger.error("No audio stream found")
+            return jsonify({"error": "No audio stream found"}), 400
         
         temp_file = stream.download(output_path=DOWNLOAD_FOLDER)
         mp3_filename = os.path.splitext(temp_file)[0] + ".mp3"
@@ -39,7 +49,7 @@ def convert():
         return jsonify({"download_link": download_link})
     
     except Exception as e:
-        app.logger.error(f"Error occurred: {e}")
+        app.logger.error(f"Error occurred: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/download/<filename>', methods=['GET'])
