@@ -1,11 +1,12 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, abort
 from pytube import YouTube
 from pydub import AudioSegment
 import os
-import time
+import uuid
 
 app = Flask(__name__)
 
+# Ensure the downloads folder exists
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
@@ -22,7 +23,6 @@ def convert():
         return jsonify({"error": "No URL provided"}), 400
     
     try:
-        time.sleep(2)  # Adding a delay to prevent rate limiting
         yt = YouTube(url)
         stream = yt.streams.filter(only_audio=True).first()
         
@@ -34,7 +34,7 @@ def convert():
         
         os.remove(temp_file)
         
-        download_link = f"https://yt-mp3-c87f.onrender.com/download/{os.path.basename(mp3_filename)}"
+        download_link = f"/download/{os.path.basename(mp3_filename)}"
         
         return jsonify({"download_link": download_link})
     
