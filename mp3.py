@@ -57,20 +57,17 @@ def json_to_netscape(json_file, output_file):
             f.write(f"{domain}\tTRUE\t{path}\t{expiry}\t{name}\t{value}\n")
 
 def get_yt_dlp_options():
-    """Return yt-dlp options with authentication."""
-    cookie_file = 'youtube_cookies.json'  # Your cookies in JSON format
-    netscape_cookies_file = 'youtube_cookies.txt'  # The output Netscape formatted file
-    
-    # Convert JSON cookies to Netscape format before use
-    json_to_netscape(cookie_file, netscape_cookies_file)
+    """Return yt-dlp options with authentication using the cookies in Netscape format."""
+    cookie_file = 'youtube_cookies.txt'  # Your cookies in Netscape format
 
     return {
-        'cookiefile': netscape_cookies_file,  # Path to your converted cookies.txt file
+        'cookiefile': cookie_file,  # Path to your Netscape formatted cookies.txt file
         'retries': 5,  # Retry 5 times before failing
         'retry_sleep': 10,  # Sleep for 10 seconds between retries
         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),  # Save to temp directory
         'progress_hooks': [progress_hook],  # Hook to track progress
     }
+
 
 @app.route('/video-info', methods=['POST'])
 def video_info():
