@@ -3,8 +3,8 @@ import os
 import io
 import shutil
 import yt_dlp
+import tempfile
 import logging
-import time
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -15,13 +15,6 @@ DOWNLOAD_DIR = "temp-downloaded-files"
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# Progress variable to track download progress
-conversion_progress = {}
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-
-
 def clean_up_download_dir():
     """Delete all contents of the temp-downloaded-files directory."""
     try:
@@ -30,10 +23,12 @@ def clean_up_download_dir():
     except Exception as e:
         logging.error(f"Error cleaning up directory: {e}")
 
+# Progress variable to track download progress
+conversion_progress = {}
 
 def progress_hook(d):
-    """Track the progress of the download."""
     if d['status'] == 'downloading':
+        # Update conversion progress with percentage
         conversion_progress['status'] = 'downloading'
         conversion_progress['percent'] = d.get('_percent_str', '0%')
         conversion_progress['speed'] = d.get('_speed_str', 'N/A')
@@ -42,19 +37,14 @@ def progress_hook(d):
         conversion_progress['status'] = 'finished'
         conversion_progress['percent'] = '100%'
 
-
 def get_yt_dlp_options():
     """Return yt-dlp options with authentication."""
     return {
-        'cookiesfrombrowser': ('chrome',),  # Extract fresh cookies from Chrome
-        # Alternatively, use a cookies.txt file:
-        # 'cookiefile': 'youtube_cookies.txt',
+        'cookiefile': 'youtube_cookies.txt',  # Path to your cookies.txt file
     }
-
 
 @app.route('/video-info', methods=['POST'])
 def video_info():
-    """Fetch video information before downloading."""
     try:
         data = request.json
         url = data.get('url')
@@ -62,13 +52,11 @@ def video_info():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
 
-        # Delay to prevent rate-limiting
-        time.sleep(2)
-
-        ydl_opts = get_yt_dlp_options()
+        # Fetch video info using yt-dlp with cookies
+        ydl_opts = get_yt_dlp_options()  # Use cookies from the txt file
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-
+        
         video_data = {
             'title': info.get('title'),
             'thumbnail': info.get('thumbnail'),
@@ -80,14 +68,13 @@ def video_info():
     except yt_dlp.utils.DownloadError as e:
         logging.error(f"DownloadError: {e}")
         return jsonify({'error': f'Error fetching video info: {str(e)}'}), 500
+
     except Exception as e:
         logging.error(f"Error fetching video info: {e}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/convert', methods=['POST'])
 def convert():
-    """Download and convert video to MP3."""
     try:
         data = request.json
         url = data.get('url')
@@ -95,61 +82,64 @@ def convert():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
 
-        # Reset conversion progress
+        # Reset conversion progress for a new conversion
         conversion_progress.clear()
 
-        ydl_opts = get_yt_dlp_options()
+        # Fetch video info to use the title as the filename
+        ydl_opts = get_yt_dlp_options()  # Use cookies from the txt file
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             title = info.get('title')
 
-        # Ensure filename is safe
-        safe_title = "".join(c for c in title if c.isalnum() or c in " -_").rstrip()
-        download_path = os.path.join(DOWNLOAD_DIR, f'{safe_title}.%(ext)s')
+        # Path to download the MP3
+        download_path = os.path.join(DOWNLOAD_DIR, f'{title}.%(ext)s')
 
-        ydl_opts.update({
+        ydl_opts = {
+            **get_yt_dlp_options(),  # Use cookies from the txt file
             'format': 'bestaudio/best',
-            'outtmpl': download_path,
-            'progress_hooks': [progress_hook],
+            'outtmpl': download_path,  # Save to the temp-download-files directory
+            'progress_hooks': [progress_hook],  # Hook to track progress
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
             'ffmpeg_location': '/usr/bin/ffmpeg'  # Adjust this path if necessary
-        })
+        }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        mp3_file = os.path.join(DOWNLOAD_DIR, f'{safe_title}.mp3')
+        mp3_file = os.path.join(DOWNLOAD_DIR, f'{title}.mp3')
 
-        # Serve the file and clean up
+        # Serve the file to the user and clean up
         with open(mp3_file, 'rb') as file_data:
             data = file_data.read()
 
+        # Clean up the temp directory after serving the file
         clean_up_download_dir()
 
+        # Send the MP3 file as a response
         return send_file(
             io.BytesIO(data),
             mimetype='audio/mpeg',
             as_attachment=True,
-            download_name=f"{safe_title}.mp3"
+            download_name=f"{title}.mp3"
         )
 
     except yt_dlp.utils.DownloadError as e:
         logging.error(f"DownloadError: {e}")
         return jsonify({'error': f'Error during video download: {str(e)}'}), 500
+
     except Exception as e:
         logging.error(f"Error during conversion: {e}")
         return jsonify({'error': f'Error during video conversion: {str(e)}'}), 500
 
-
 @app.route('/progress', methods=['GET'])
 def get_progress():
-    """Return the current progress of the conversion."""
+    """API to get the current progress of the conversion"""
     return jsonify(conversion_progress)
 
-
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.ERROR)
     app.run(debug=True)
