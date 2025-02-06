@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify, send_file
-import youtube_dl
+import yt_dlp as youtube_dl
 import os
 import uuid
+import time
 
 app = Flask(__name__)
 
@@ -27,6 +28,7 @@ def convert():
     }
 
     try:
+        time.sleep(2)  # Adding a delay to avoid rate limiting
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
