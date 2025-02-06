@@ -1,5 +1,4 @@
-from flask import Flask, request, jsonify
-from flask import send_file
+from flask import Flask, request, jsonify, send_file
 from pytube import YouTube
 from pydub import AudioSegment
 import os
@@ -8,6 +7,10 @@ app = Flask(__name__)
 
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+@app.route('/')
+def home():
+    return "YouTube to MP3 Converter API"
 
 @app.route('/convert', methods=['POST'])
 def convert():
@@ -34,6 +37,7 @@ def convert():
         return jsonify({"download_link": download_link})
     
     except Exception as e:
+        app.logger.error(f"Error occurred: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/download/<filename>', methods=['GET'])
