@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from pytube import YouTube
 from pydub import AudioSegment
 import os
@@ -28,10 +28,19 @@ def convert():
         
         os.remove(temp_file)
         
-        return send_file(mp3_filename, as_attachment=True)
+        download_link = f"https://yt-mp3-c87f.onrender.com/download/{os.path.basename(mp3_filename)}"
+        
+        return jsonify({"download_link": download_link})
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/download/<filename>', methods=['GET'])
+def download(filename):
+    file_path = os.path.join(DOWNLOAD_FOLDER, filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    return jsonify({"error": "File not found"}), 404
 
 if __name__ == '__main__':
     app.run(debug=True)
