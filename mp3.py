@@ -39,22 +39,6 @@ def progress_hook(d):
         conversion_progress['status'] = 'finished'
         conversion_progress['percent'] = '100%'
 
-def json_to_netscape(json_file, output_file):
-    """Convert the cookies from JSON to Netscape format."""
-    with open(json_file, 'r') as f:
-        cookies = json.load(f)
-    
-    with open(output_file, 'w') as f:
-        f.write('# Netscape HTTP Cookie File\n')
-        for cookie in cookies:
-            domain = cookie['domain']
-            flag = cookie['secure'] and 'TRUE' or 'FALSE'
-            path = cookie['path']
-            expiry = cookie['expirationDate']
-            name = cookie['name']
-            value = cookie['value']
-            # Convert to the Netscape format line
-            f.write(f"{domain}\tTRUE\t{path}\t{expiry}\t{name}\t{value}\n")
 
 def get_yt_dlp_options():
     """Return yt-dlp options with authentication using the cookies in Netscape format."""
