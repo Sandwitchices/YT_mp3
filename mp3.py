@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_file
 from pytube import YouTube
 from pydub import AudioSegment
 import os
+import time
 
 app = Flask(__name__)
 
@@ -21,6 +22,7 @@ def convert():
         return jsonify({"error": "No URL provided"}), 400
     
     try:
+        time.sleep(2)  # Adding a delay to prevent rate limiting
         yt = YouTube(url)
         stream = yt.streams.filter(only_audio=True).first()
         
