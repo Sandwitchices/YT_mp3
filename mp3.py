@@ -4,7 +4,9 @@ import io
 import shutil
 import yt_dlp
 import tempfile
+import logging
 from flask_cors import CORS
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -20,7 +22,7 @@ def clean_up_download_dir():
         shutil.rmtree(DOWNLOAD_DIR)
         os.makedirs(DOWNLOAD_DIR)  # Recreate the directory after cleaning it up
     except Exception as e:
-        print(f"Error cleaning up directory: {e}")
+        logging.error(f"Error cleaning up directory: {e}")
 
 # Progress variable to track download progress
 conversion_progress = {}
@@ -60,8 +62,12 @@ def video_info():
 
         return jsonify(video_data)
 
+    except yt_dlp.utils.DownloadError as e:
+        logging.error(f"DownloadError: {e}")
+        return jsonify({'error': f'Error fetching video info: {str(e)}'}), 500
+
     except Exception as e:
-        print(f"Error fetching video info: {e}")
+        logging.error(f"Error fetching video info: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/convert', methods=['POST'])
@@ -120,11 +126,11 @@ def convert():
         )
 
     except yt_dlp.utils.DownloadError as e:
-        print(f"DownloadError: {e}")
+        logging.error(f"DownloadError: {e}")
         return jsonify({'error': f'Error during video download: {str(e)}'}), 500
 
     except Exception as e:
-        print(f"Error during conversion: {str(e)}")
+        logging.error(f"Error during conversion: {e}")
         return jsonify({'error': f'Error during video conversion: {str(e)}'}), 500
 
 @app.route('/progress', methods=['GET'])
@@ -133,4 +139,5 @@ def get_progress():
     return jsonify(conversion_progress)
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.ERROR)
     app.run(debug=True)
