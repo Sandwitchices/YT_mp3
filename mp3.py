@@ -45,8 +45,10 @@ def video_info():
         if not url:
             return jsonify({'error': 'URL is required'}), 400
 
-        # Fetch video info using yt-dlp
-        ydl_opts = {}
+        # Fetch video info using yt-dlp with cookies
+        ydl_opts = {
+            'cookies': 'youtube_cookies.txt',  # Path to your cookies file
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
         
@@ -75,7 +77,9 @@ def convert():
         conversion_progress.clear()
 
         # Fetch video info to use the title as the filename
-        ydl_opts = {}
+        ydl_opts = {
+            'cookies': 'youtube_cookies.txt',  # Path to your cookies file
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             title = info.get('title')
