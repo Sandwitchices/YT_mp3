@@ -1,3 +1,4 @@
 gunicorn
 Flask==2.0.2
 youtube_dl==2021.12.17
+werkzeug==2.0.2
