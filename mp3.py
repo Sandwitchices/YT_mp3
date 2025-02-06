@@ -1,40 +1,37 @@
 from flask import Flask, request, jsonify, send_file
-import yt_dlp as youtube_dl
+from pytube import YouTube
+from pydub import AudioSegment
 import os
-import uuid
-import time
 
 app = Flask(__name__)
 
+DOWNLOAD_FOLDER = "downloads"
+os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
 @app.route('/convert', methods=['POST'])
 def convert():
-    data = request.json
+    data = request.get_json()
     url = data.get('url')
-
+    
     if not url:
-        return jsonify({'error': 'No URL provided'}), 400
-
-    unique_filename = str(uuid.uuid4())
-    mp3_filename = f"{unique_filename}.mp3"
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': f'/tmp/{unique_filename}.%(ext)s',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
-
+        return jsonify({"error": "No URL provided"}), 400
+    
     try:
-        time.sleep(2)  # Adding a delay to avoid rate limiting
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        yt = YouTube(url)
+        stream = yt.streams.filter(only_audio=True).first()
         
-        return send_file(f"/tmp/{mp3_filename}", as_attachment=True, attachment_filename=mp3_filename)
+        temp_file = stream.download(output_path=DOWNLOAD_FOLDER)
+        mp3_filename = os.path.splitext(temp_file)[0] + ".mp3"
+        
+        audio = AudioSegment.from_file(temp_file)
+        audio.export(mp3_filename, format="mp3")
+        
+        os.remove(temp_file)
+        
+        return send_file(mp3_filename, as_attachment=True)
+    
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
