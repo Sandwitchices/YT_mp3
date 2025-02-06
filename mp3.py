@@ -6,6 +6,7 @@ import yt_dlp
 import tempfile
 import logging
 from flask_cors import CORS
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -41,6 +42,8 @@ def get_yt_dlp_options():
     """Return yt-dlp options with authentication."""
     return {
         'cookiefile': 'youtube_cookies.txt',  # Path to your cookies.txt file
+        'retries': 5,  # Retry 5 times before failing
+        'retry_sleep': 10,  # Sleep for 10 seconds between retries
     }
 
 @app.route('/video-info', methods=['POST'])
@@ -107,8 +110,19 @@ def convert():
             'ffmpeg_location': '/usr/bin/ffmpeg'  # Adjust this path if necessary
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        # Retry logic to avoid rate limiting
+        retries = 3
+        for _ in range(retries):
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                break  # If the download is successful, break out of the retry loop
+            except yt_dlp.utils.DownloadError as e:
+                if '429' in str(e):  # Check for rate limiting error
+                    logging.warning(f"Rate limit hit, retrying: {e}")
+                    time.sleep(15)  # Sleep for 15 seconds before retrying
+                    continue
+                raise  # If it's not a rate limit error, raise the error
 
         mp3_file = os.path.join(DOWNLOAD_DIR, f'{title}.mp3')
 
@@ -142,4 +156,4 @@ def get_progress():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.ERROR)
-    app.run(debug=True)
+    app.run(debug=True, threaded=True)
