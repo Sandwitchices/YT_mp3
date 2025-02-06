@@ -1,10 +1,10 @@
-from flask import Flask, request, jsonify, send_file
 import os
 import io
 import shutil
 import yt_dlp
 import tempfile
 import logging
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import time
 
@@ -44,6 +44,8 @@ def get_yt_dlp_options():
         'cookiefile': 'youtube_cookies.txt',  # Path to your cookies.txt file
         'retries': 5,  # Retry 5 times before failing
         'retry_sleep': 10,  # Sleep for 10 seconds between retries
+        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),  # Save to temp directory
+        'progress_hooks': [progress_hook],  # Hook to track progress
     }
 
 @app.route('/video-info', methods=['POST'])
@@ -97,18 +99,16 @@ def convert():
         # Path to download the MP3
         download_path = os.path.join(DOWNLOAD_DIR, f'{title}.%(ext)s')
 
-        ydl_opts = {
-            **get_yt_dlp_options(),  # Use cookies from the txt file
+        ydl_opts.update({
             'format': 'bestaudio/best',
             'outtmpl': download_path,  # Save to the temp-download-files directory
-            'progress_hooks': [progress_hook],  # Hook to track progress
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            'ffmpeg_location': '/usr/bin/ffmpeg'  # Adjust this path if necessary
-        }
+            'ffmpeg_location': '/usr/bin/ffmpeg',  # Adjust this path if necessary
+        })
 
         # Retry logic to avoid rate limiting
         retries = 3
